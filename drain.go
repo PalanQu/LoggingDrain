@@ -1,10 +1,7 @@
-package templateminer
+package loggingdrain
 
 import (
 	"fmt"
-	"loggingdrain/pkg/config"
-	"loggingdrain/pkg/errors"
-	"loggingdrain/pkg/utils"
 	"strings"
 	"sync"
 
@@ -28,11 +25,11 @@ const (
 )
 
 const (
-	DEFAULT_MAX_DEPTH    = 4
-	DEFAULT_SIM          = 0.4
-	DEFAULT_MAX_CHILDREN = 100
-	DEFAULT_MAX_CLUSTERS = 1000
-	DEFAULT_WILDCARD_STR = "[*]"
+	default_max_depth    = 4
+	default_sim          = 0.4
+	default_max_children = 100
+	default_max_clusters = 1000
+	default_wildcard_str = "[*]"
 )
 
 type drain struct {
@@ -47,8 +44,8 @@ type drain struct {
 	rootNode       *treeNode
 }
 
-func (drain *drain) diff(compareDrain *drain) map[int64]*LogClusterDiff {
-	clusterDiff := map[int64]*LogClusterDiff{}
+func (drain *drain) diff(compareDrain *drain) map[int64]*logClusterDiff {
+	clusterDiff := map[int64]*logClusterDiff{}
 	cache := map[string]*LogCluster{}
 	for _, logCluster := range compareDrain.idToCluster.Values() {
 		cache[logCluster.getTemplate()] = logCluster
@@ -57,34 +54,34 @@ func (drain *drain) diff(compareDrain *drain) map[int64]*LogClusterDiff {
 		logCluster, _ := drain.idToCluster.Get(id)
 		compareLogCluster, ok := cache[logCluster.getTemplate()]
 		if !ok {
-			clusterDiff[id] = &LogClusterDiff{
+			clusterDiff[id] = &logClusterDiff{
 				DiffNum:  len(logCluster.logs),
 				DiffRate: 0,
-				DiffType: LOG_CLUSTER_DIFF_TYPE_NEW,
+				DiffType: log_cluster_diff_type_new,
 			}
 			continue
 		}
 		diffCount := len(logCluster.logs) - len(compareLogCluster.logs)
 		switch {
 		case diffCount > 0:
-			clusterDiff[id] = &LogClusterDiff{
+			clusterDiff[id] = &logClusterDiff{
 				DiffNum:  diffCount,
 				DiffRate: float32(diffCount) / float32(len(compareLogCluster.logs)),
-				DiffType: LOG_CLUSTER_DIFF_TYPE_INCREASE,
+				DiffType: log_cluster_diff_type_increase,
 			}
 			continue
 		case diffCount == 0:
-			clusterDiff[id] = &LogClusterDiff{
+			clusterDiff[id] = &logClusterDiff{
 				DiffNum:  0,
 				DiffRate: 0,
-				DiffType: LOG_CLUSTER_DIFF_TYPE_EQUAL,
+				DiffType: log_cluster_diff_type_equal,
 			}
 			continue
 		case diffCount < 0:
-			clusterDiff[id] = &LogClusterDiff{
+			clusterDiff[id] = &logClusterDiff{
 				DiffNum:  diffCount,
 				DiffRate: float32(diffCount) / float32(len(compareLogCluster.logs)),
-				DiffType: LOG_CLUSTER_DIFF_TYPE_DECREASE,
+				DiffType: log_cluster_diff_type_decrease,
 			}
 			continue
 		}
@@ -110,7 +107,7 @@ func (drain *drain) status() string {
 }
 
 func (drain *drain) addLogMessage(message string) (*LogCluster, ClusterUpdateType) {
-	tokens := utils.GetStringTokens(message)
+	tokens := getStringTokens(message)
 	cluster := drain.treeSearch(drain.rootNode, tokens, drain.sim, false)
 	if cluster == nil {
 		drain.clusterCounter += 1
@@ -156,7 +153,7 @@ func (drain *drain) addLogMessage(message string) (*LogCluster, ClusterUpdateTyp
 //
 // :return: Matched cluster or None if no match found.
 func (drain *drain) match(content string, strategy SearchStrategy) *LogCluster {
-	tokens := utils.GetStringTokens(content)
+	tokens := getStringTokens(content)
 	requireSim := float32(1)
 	fullMatch := func() *LogCluster {
 		clusters := drain.getClustersForSeqLen(len(tokens))
@@ -218,7 +215,7 @@ func (drain *drain) treeSearch(rootNode *treeNode, tokens []string, requireSim f
 		}
 		internalNode, ok = lengthNode.internalChildren[token]
 		if !ok {
-			wildcardNode, _ := lengthNode.internalChildren[DEFAULT_WILDCARD_STR]
+			wildcardNode, _ := lengthNode.internalChildren[default_wildcard_str]
 			internalNode = wildcardNode
 		}
 		if internalNode == nil {
@@ -232,13 +229,13 @@ func (drain *drain) treeSearch(rootNode *treeNode, tokens []string, requireSim f
 func (drain *drain) updateTemplate(seq1, template []string) (bool, error) {
 	updated := false
 	if len(seq1) != len(template) {
-		return updated, errors.ErrInternalRaw(
+		return updated, errInternalRaw(
 			fmt.Sprintf("seq1 length %v not equals to template length %v", len(seq1), len(template)))
 	}
 	for i := range template {
-		if seq1[i] != template[i] && template[i] != DEFAULT_WILDCARD_STR {
+		if seq1[i] != template[i] && template[i] != default_wildcard_str {
 			updated = true
-			template[i] = DEFAULT_WILDCARD_STR
+			template[i] = default_wildcard_str
 		}
 	}
 
@@ -297,13 +294,13 @@ func (drain *drain) addSeqToPrefixTree(rootNode *treeNode, cluster *LogCluster) 
 		if containsInChildren {
 			currentNode = node
 		} else {
-			wildcardNode, hasWildcardNode := currentNode.internalChildren[DEFAULT_WILDCARD_STR]
-			if utils.StringHasNumber(token) {
+			wildcardNode, hasWildcardNode := currentNode.internalChildren[default_wildcard_str]
+			if stringHasNumber(token) {
 				if hasWildcardNode {
 					currentNode = wildcardNode
 				} else {
 					newNode := newInternalTreeNode()
-					currentNode.internalChildren[DEFAULT_WILDCARD_STR] = newNode
+					currentNode.internalChildren[default_wildcard_str] = newNode
 					currentNode = newNode
 				}
 			} else {
@@ -313,19 +310,19 @@ func (drain *drain) addSeqToPrefixTree(rootNode *treeNode, cluster *LogCluster) 
 						currentNode.internalChildren[token] = newNode
 						currentNode = newNode
 					} else {
-						currentNode = currentNode.internalChildren[DEFAULT_WILDCARD_STR]
+						currentNode = currentNode.internalChildren[default_wildcard_str]
 					}
 				} else {
-					if len(currentNode.internalChildren)+1 < DEFAULT_MAX_CHILDREN {
+					if len(currentNode.internalChildren)+1 < default_max_children {
 						newNode := newInternalTreeNode()
 						currentNode.internalChildren[token] = newNode
 						currentNode = newNode
-					} else if len(currentNode.internalChildren)+1 == DEFAULT_MAX_CHILDREN {
+					} else if len(currentNode.internalChildren)+1 == default_max_children {
 						newNode := newInternalTreeNode()
-						currentNode.internalChildren[DEFAULT_WILDCARD_STR] = newNode
+						currentNode.internalChildren[default_wildcard_str] = newNode
 						currentNode = newNode
 					} else {
-						currentNode = currentNode.internalChildren[DEFAULT_WILDCARD_STR]
+						currentNode = currentNode.internalChildren[default_wildcard_str]
 					}
 				}
 			}
@@ -390,7 +387,7 @@ func (drain *drain) getClustersForSeqLen(length int) []*LogCluster {
 
 func (drain *drain) getSeqDistance(seq1, seq2 []string, includeParams bool) (float32, int64, error) {
 	if len(seq1) != len(seq2) {
-		return 0, 0, errors.ErrInternalRaw(
+		return 0, 0, errInternalRaw(
 			fmt.Sprintf("seq1 length %v not equals to seq2 length %v", len(seq1), len(seq2)))
 	}
 	if len(seq1) == 0 {
@@ -400,7 +397,7 @@ func (drain *drain) getSeqDistance(seq1, seq2 []string, includeParams bool) (flo
 	var paramCount int64
 	for i, token1 := range seq1 {
 		token2 := seq2[i]
-		if token1 == DEFAULT_WILDCARD_STR {
+		if token1 == default_wildcard_str {
 			paramCount += 1
 			continue
 		}
@@ -420,8 +417,8 @@ func newDrain(options ...drainOption) *drain {
 	return newDrainWithConfig(conf)
 }
 
-func newDrainWithConfig(conf config.DrainConfig) *drain {
-	maxCluster := DEFAULT_MAX_CLUSTERS
+func newDrainWithConfig(conf drainConfig) *drain {
+	maxCluster := default_max_clusters
 	if conf.MaxCluster > 0 {
 		maxCluster = conf.MaxCluster
 	}
@@ -440,52 +437,52 @@ func newDrainWithConfig(conf config.DrainConfig) *drain {
 }
 
 func withDepth(depth int) drainOption {
-	return drainOptionFunc(func(conf config.DrainConfig) config.DrainConfig {
+	return drainOptionFunc(func(conf drainConfig) drainConfig {
 		conf.Depth = depth
 		return conf
 	})
 }
 
 func withSim(sim float32) drainOption {
-	return drainOptionFunc(func(conf config.DrainConfig) config.DrainConfig {
+	return drainOptionFunc(func(conf drainConfig) drainConfig {
 		conf.Similarity = sim
 		return conf
 	})
 }
 
 func withMaxChildren(maxChildren int) drainOption {
-	return drainOptionFunc(func(conf config.DrainConfig) config.DrainConfig {
+	return drainOptionFunc(func(conf drainConfig) drainConfig {
 		conf.MaxChildren = maxChildren
 		return conf
 	})
 }
 
 func withMaxClusters(maxCluster int) drainOption {
-	return drainOptionFunc(func(conf config.DrainConfig) config.DrainConfig {
+	return drainOptionFunc(func(conf drainConfig) drainConfig {
 		conf.MaxCluster = maxCluster
 		return conf
 	})
 }
 
 type drainOption interface {
-	apply(config.DrainConfig) config.DrainConfig
+	apply(drainConfig) drainConfig
 }
 
 // apply returns a config with option(s) applied.
-func (o drainOptionFunc) apply(conf config.DrainConfig) config.DrainConfig {
+func (o drainOptionFunc) apply(conf drainConfig) drainConfig {
 	return o(conf)
 }
 
 // drainOptionFunc applies a set of options to a config.
-type drainOptionFunc func(config.DrainConfig) config.DrainConfig
+type drainOptionFunc func(drainConfig) drainConfig
 
 // newDrainConfig returns a config configured with options.
-func newDrainConfig(options []drainOption) config.DrainConfig {
-	conf := config.DrainConfig{
-		Depth:       DEFAULT_MAX_DEPTH,
-		Similarity:  DEFAULT_SIM,
-		MaxChildren: DEFAULT_MAX_CHILDREN,
-		MaxCluster:  DEFAULT_MAX_CLUSTERS,
+func newDrainConfig(options []drainOption) drainConfig {
+	conf := drainConfig{
+		Depth:       default_max_depth,
+		Similarity:  default_sim,
+		MaxChildren: default_max_children,
+		MaxCluster:  default_max_clusters,
 	}
 	for _, o := range options {
 		conf = o.apply(conf)

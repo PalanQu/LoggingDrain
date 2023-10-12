@@ -1,16 +1,16 @@
-package utils
+package loggingdrain
 
 import (
 	"strings"
 	"unicode"
 )
 
-func GetStringTokens(message string) []string {
+func getStringTokens(message string) []string {
 	content := strings.TrimSpace(message)
 	return strings.Fields(content)
 }
 
-func StringHasNumber(message string) bool {
+func stringHasNumber(message string) bool {
 	for _, char := range message {
 		if unicode.IsDigit(char) {
 			return true

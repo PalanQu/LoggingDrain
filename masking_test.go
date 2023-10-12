@@ -1,4 +1,4 @@
-package templateminer
+package loggingdrain
 
 import (
 	"testing"
