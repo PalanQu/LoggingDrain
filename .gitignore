@@ -9,3 +9,5 @@ coverage.out
 
 # tgz
 *.tgz
+
+.vscode/

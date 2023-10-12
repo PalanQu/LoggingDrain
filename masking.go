@@ -1,14 +1,12 @@
-package templateminer
+package loggingdrain
 
 import (
-	"loggingdrain/pkg/config"
-	"loggingdrain/pkg/errors"
 	"regexp"
 )
 
 const (
-	DEFAULT_MASKING_PREFIX = "[:"
-	DEFAULT_MASKING_SUFFIX = ":]"
+	default_masking_prefix = "[:"
+	default_masking_suffix = ":]"
 )
 
 type logMasker struct {
@@ -26,7 +24,7 @@ type logInstruction struct {
 func newLogInstruction(maskWith, pattern string) (*logInstruction, error) {
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		return nil, errors.ErrMaskPatternCompile(err)
+		return nil, errMaskPatternCompile(err)
 	}
 	return &logInstruction{
 		pattern:  pattern,
@@ -40,7 +38,7 @@ func (ins *logInstruction) mask(content, prefix, suffix string) string {
 	return ins.re.ReplaceAllString(content, maskStr)
 }
 
-func newLogMaskerWithConfig(maskConfig config.MaskConfig) (*logMasker, error) {
+func newLogMaskerWithConfig(maskConfig maskConfig) (*logMasker, error) {
 	nameToInstructions := map[string]*logInstruction{}
 	for _, ins := range maskConfig.MaskInstructions {
 		newIns, err := newLogInstruction(ins.MaskWith, ins.Pattern)

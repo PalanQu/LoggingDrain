@@ -3,14 +3,13 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"loggingdrain/pkg/config"
-	templateminer "loggingdrain/pkg/template_miner"
 	"os"
+
+	loggingdrain3 "github.com/palanqu/loggingdrain3"
 )
 
 func main() {
-	c := config.LoadConfig("example_config.yaml")
-	miner, err := templateminer.NewTemplateMinerWithConfig(c)
+	miner, err := loggingdrain3.NewTemplateMiner()
 	if err != nil {
 		panic(err)
 	}
@@ -21,11 +20,11 @@ func main() {
 		switch input {
 		case "q":
 			fmt.Println("quit")
-			break
+			fmt.Println(miner.Status())
+			return
 		default:
 			resp := miner.AddLogMessage(input)
 			fmt.Printf("\nTemplate: %s\n", resp.TemplateMined)
 		}
 	}
-	fmt.Println(miner.Status())
 }

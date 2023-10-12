@@ -1,8 +1,7 @@
-package templateminer
+package loggingdrain
 
 import (
 	"fmt"
-	"loggingdrain/pkg/utils"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,7 +34,6 @@ func TestAddLogMessage(t *testing.T) {
 			assert.Equal(t, expected[i], cluster.getTemplate())
 			assert.Equal(t, expectedClusterSize[i], len(cluster.logs))
 		}
-		// fmt.Println(drain.status())
 	})
 	t.Run("test empty msg", func(t *testing.T) {
 		drain := newDrain()
@@ -187,7 +185,7 @@ func TestSeqDistance(t *testing.T) {
 
 			drain := newDrain()
 			relVal, paramCount, _ := drain.getSeqDistance(
-				utils.GetStringTokens(data.seq1), utils.GetStringTokens(data.seq2), data.includeParams)
+				getStringTokens(data.seq1), getStringTokens(data.seq2), data.includeParams)
 			assert.Equal(t, data.relVal, relVal, "relVal not equals")
 			assert.Equal(t, data.paramCount, paramCount, "paramCount not equals")
 		})
@@ -296,18 +294,18 @@ func TestDiff(t *testing.T) {
 
 		assert.Equal(t, -1, diff[1].DiffNum)
 		assert.Equal(t, float32(-0.33333334), diff[1].DiffRate)
-		assert.Equal(t, LOG_CLUSTER_DIFF_TYPE_DECREASE, diff[1].DiffType)
+		assert.Equal(t, log_cluster_diff_type_decrease, diff[1].DiffType)
 
 		assert.Equal(t, 1, diff[2].DiffNum)
 		assert.Equal(t, float32(0.5), diff[2].DiffRate)
-		assert.Equal(t, LOG_CLUSTER_DIFF_TYPE_INCREASE, diff[2].DiffType)
+		assert.Equal(t, log_cluster_diff_type_increase, diff[2].DiffType)
 
 		assert.Equal(t, 0, diff[3].DiffNum)
 		assert.Equal(t, float32(0), diff[3].DiffRate)
-		assert.Equal(t, LOG_CLUSTER_DIFF_TYPE_EQUAL, diff[3].DiffType)
+		assert.Equal(t, log_cluster_diff_type_equal, diff[3].DiffType)
 
 		assert.Equal(t, 1, diff[4].DiffNum)
 		assert.Equal(t, float32(0), diff[4].DiffRate)
-		assert.Equal(t, LOG_CLUSTER_DIFF_TYPE_NEW, diff[4].DiffType)
+		assert.Equal(t, log_cluster_diff_type_new, diff[4].DiffType)
 	})
 }

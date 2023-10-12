@@ -1,4 +1,4 @@
-package templateminer
+package loggingdrain
 
 import "strings"
 
@@ -8,19 +8,19 @@ type LogCluster struct {
 	logs              []string
 }
 
-type LogClusterDiffType int
+type logClusterDiffType int
 
 const (
-	LOG_CLUSTER_DIFF_TYPE_NEW LogClusterDiffType = iota
-	LOG_CLUSTER_DIFF_TYPE_INCREASE
-	LOG_CLUSTER_DIFF_TYPE_EQUAL
-	LOG_CLUSTER_DIFF_TYPE_DECREASE
+	log_cluster_diff_type_new logClusterDiffType = iota
+	log_cluster_diff_type_increase
+	log_cluster_diff_type_equal
+	log_cluster_diff_type_decrease
 )
 
-type LogClusterDiff struct {
+type logClusterDiff struct {
 	DiffNum  int
 	DiffRate float32
-	DiffType LogClusterDiffType
+	DiffType logClusterDiffType
 }
 
 func newLogCluster(id int64, templateTokens []string) *LogCluster {
@@ -42,9 +42,9 @@ func (cluster *LogCluster) getTemplate() string {
 type treeNodeType int
 
 const (
-	TREE_NODE_TYPE_ROOT treeNodeType = iota
-	TREE_NODE_TYPE_LENGH
-	TREE_NODE_TYPE_INTERNAL
+	tree_node_type_root treeNodeType = iota
+	tree_node_type_length
+	tree_node_type_internal
 )
 
 type treeNode struct {
@@ -72,7 +72,7 @@ func newTreeNodes() treeNodes {
 
 func newRootTreeNode() *treeNode {
 	return &treeNode{
-		nodeType:         TREE_NODE_TYPE_ROOT,
+		nodeType:         tree_node_type_root,
 		length:           0,
 		internalChildren: make(map[string]*treeNode),
 		lengthChildren:   make(map[int]*treeNode),
@@ -82,7 +82,7 @@ func newRootTreeNode() *treeNode {
 
 func newLengthTreeNode(length int) *treeNode {
 	return &treeNode{
-		nodeType:         TREE_NODE_TYPE_LENGH,
+		nodeType:         tree_node_type_length,
 		length:           length,
 		internalChildren: make(map[string]*treeNode),
 		lengthChildren:   make(map[int]*treeNode),
@@ -92,7 +92,7 @@ func newLengthTreeNode(length int) *treeNode {
 
 func newInternalTreeNode() *treeNode {
 	return &treeNode{
-		nodeType:         TREE_NODE_TYPE_INTERNAL,
+		nodeType:         tree_node_type_internal,
 		length:           0,
 		internalChildren: make(map[string]*treeNode),
 		lengthChildren:   make(map[int]*treeNode),

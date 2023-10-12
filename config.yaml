@@ -1,7 +1,0 @@
-mask:
-    prefix: "[:"
-    suffix: ":]"
-drain:
-    depth: "4"
-    max_children: "1000"
-    similarity: "0.4"
