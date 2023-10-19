@@ -1,6 +1,7 @@
 package loggingdrain
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -44,49 +45,50 @@ type drain struct {
 	rootNode       *treeNode
 }
 
-func (drain *drain) diff(compareDrain *drain) map[int64]*logClusterDiff {
-	clusterDiff := map[int64]*logClusterDiff{}
-	cache := map[string]*LogCluster{}
-	for _, logCluster := range compareDrain.idToCluster.Values() {
-		cache[logCluster.getTemplate()] = logCluster
+type drainMarshalStruct struct {
+	MaxDepth    int
+	Sim         float32
+	MaxChildren int
+	MaxClusters int
+
+	Clusters []*LogCluster
+	RootNode *treeNode
+}
+
+func (drain *drain) MarshalJSON() ([]byte, error) {
+	clusters := []*LogCluster{}
+	clusters = append(clusters, drain.idToCluster.Values()...)
+	marshalStruct := drainMarshalStruct{
+		MaxDepth:    drain.maxDepth,
+		Sim:         drain.sim,
+		MaxChildren: drain.maxChildren,
+		MaxClusters: drain.maxClusters,
+		Clusters:    clusters,
+		RootNode:    drain.rootNode,
 	}
-	for _, id := range drain.idToCluster.Keys() {
-		logCluster, _ := drain.idToCluster.Get(id)
-		compareLogCluster, ok := cache[logCluster.getTemplate()]
-		if !ok {
-			clusterDiff[id] = &logClusterDiff{
-				DiffNum:  len(logCluster.logs),
-				DiffRate: 0,
-				DiffType: log_cluster_diff_type_new,
-			}
-			continue
-		}
-		diffCount := len(logCluster.logs) - len(compareLogCluster.logs)
-		switch {
-		case diffCount > 0:
-			clusterDiff[id] = &logClusterDiff{
-				DiffNum:  diffCount,
-				DiffRate: float32(diffCount) / float32(len(compareLogCluster.logs)),
-				DiffType: log_cluster_diff_type_increase,
-			}
-			continue
-		case diffCount == 0:
-			clusterDiff[id] = &logClusterDiff{
-				DiffNum:  0,
-				DiffRate: 0,
-				DiffType: log_cluster_diff_type_equal,
-			}
-			continue
-		case diffCount < 0:
-			clusterDiff[id] = &logClusterDiff{
-				DiffNum:  diffCount,
-				DiffRate: float32(diffCount) / float32(len(compareLogCluster.logs)),
-				DiffType: log_cluster_diff_type_decrease,
-			}
-			continue
-		}
+	return json.Marshal(&marshalStruct)
+}
+
+func (drain *drain) UnmarshalJSON(data []byte) error {
+	var marshalStruct drainMarshalStruct
+	err := json.Unmarshal(data, &marshalStruct)
+	if err != nil {
+		return err
 	}
-	return clusterDiff
+	l, _ := lru.New[int64, *LogCluster](marshalStruct.MaxClusters)
+	for _, cluster := range marshalStruct.Clusters {
+		l.Add(cluster.id, cluster)
+	}
+
+	drain.clusterCounter = int64(len(marshalStruct.Clusters))
+	drain.idToCluster = l
+	drain.maxChildren = marshalStruct.MaxChildren
+	drain.maxClusters = marshalStruct.MaxClusters
+	drain.maxDepth = marshalStruct.MaxDepth
+	drain.mu = sync.Mutex{}
+	drain.rootNode = marshalStruct.RootNode
+	drain.sim = marshalStruct.Sim
+	return nil
 }
 
 func (drain *drain) status() string {
@@ -95,11 +97,7 @@ func (drain *drain) status() string {
 	clustersStr := []string{}
 	for _, clusterKey := range drain.idToCluster.Keys() {
 		cluster, _ := drain.idToCluster.Get(clusterKey)
-		clustersStr = append(clustersStr, fmt.Sprintf("count %v, %s\n", len(cluster.logs),
-			cluster.getTemplate()))
-		for _, log := range cluster.logs {
-			clustersStr = append(clustersStr, fmt.Sprintf("\t%s\n", log))
-		}
+		clustersStr = append(clustersStr, fmt.Sprintf("%s\n", cluster.getTemplate()))
 	}
 
 	status := fmt.Sprintf("%s\n%s", countStr, strings.Join(clustersStr, "\n"))
@@ -115,13 +113,7 @@ func (drain *drain) addLogMessage(message string) (*LogCluster, ClusterUpdateTyp
 		cluster = newLogCluster(id, tokens)
 		drain.idToCluster.Add(id, cluster)
 		drain.addSeqToPrefixTree(drain.rootNode, cluster)
-		if message != "" {
-			cluster.appendLog(message)
-		}
 		return cluster, CLUSTER_UPDATE_TYPE_NEW_CLUSTER
-	}
-	if message != "" {
-		cluster.appendLog(message)
 	}
 	updatedTemplate, err := drain.updateTemplate(tokens, cluster.logTemplateTokens)
 	if err != nil {
@@ -192,9 +184,14 @@ func (drain *drain) GetTotalClusterSize() int {
 	return drain.idToCluster.Len()
 }
 
-func (drain *drain) treeSearch(rootNode *treeNode, tokens []string, requireSim float32, includeParams bool) *LogCluster {
+func (drain *drain) treeSearch(
+	rootNode *treeNode,
+	tokens []string,
+	requireSim float32,
+	includeParams bool,
+) *LogCluster {
 	tokenCount := len(tokens)
-	lengthNode, ok := rootNode.lengthChildren[tokenCount]
+	lengthNode, ok := rootNode.lengthNodeChildren[tokenCount]
 	if !ok {
 		return nil
 	}
@@ -204,7 +201,7 @@ func (drain *drain) treeSearch(rootNode *treeNode, tokens []string, requireSim f
 		}
 		return lengthNode.clusters[0]
 	}
-	var internalNode = lengthNode
+	var currentNode = lengthNode
 	currentDepth := 1
 	for _, token := range tokens {
 		if currentDepth >= drain.getMaxNodeDepth() {
@@ -213,17 +210,20 @@ func (drain *drain) treeSearch(rootNode *treeNode, tokens []string, requireSim f
 		if currentDepth == tokenCount {
 			break
 		}
-		internalNode, ok = lengthNode.internalChildren[token]
+		subNode, ok := currentNode.tokenNodeChildren[token]
 		if !ok {
-			wildcardNode, _ := lengthNode.internalChildren[default_wildcard_str]
-			internalNode = wildcardNode
+			wildcardNode := currentNode.tokenNodeChildren[default_wildcard_str]
+			currentNode = wildcardNode
+		} else {
+			currentNode = subNode
 		}
-		if internalNode == nil {
+		// no wildcard node
+		if currentNode == nil {
 			return nil
 		}
 		currentDepth += 1
 	}
-	return drain.fastMatch(internalNode.clusters, tokens, requireSim, includeParams)
+	return drain.fastMatch(currentNode.clusters, tokens, requireSim, includeParams)
 }
 
 func (drain *drain) updateTemplate(seq1, template []string) (bool, error) {
@@ -268,10 +268,10 @@ func (drain *drain) updateTemplate(seq1, template []string) (bool, error) {
 //					greater than -> action1: change the current node to wildcard node and continue loop
 func (drain *drain) addSeqToPrefixTree(rootNode *treeNode, cluster *LogCluster) {
 	tokenCount := len(cluster.logTemplateTokens)
-	lengthNode, ok := rootNode.lengthChildren[tokenCount]
+	lengthNode, ok := rootNode.lengthNodeChildren[tokenCount]
 	if !ok {
 		lengthNode = newLengthTreeNode(tokenCount)
-		rootNode.lengthChildren[tokenCount] = lengthNode
+		rootNode.lengthNodeChildren[tokenCount] = lengthNode
 	}
 	currentNode := lengthNode
 	currentDepth := 1
@@ -290,39 +290,39 @@ func (drain *drain) addSeqToPrefixTree(rootNode *treeNode, cluster *LogCluster) 
 			currentNode.clusters = newClusters
 			break
 		}
-		node, containsInChildren := currentNode.internalChildren[token]
+		node, containsInChildren := currentNode.tokenNodeChildren[token]
 		if containsInChildren {
 			currentNode = node
 		} else {
-			wildcardNode, hasWildcardNode := currentNode.internalChildren[default_wildcard_str]
+			wildcardNode, hasWildcardNode := currentNode.tokenNodeChildren[default_wildcard_str]
 			if stringHasNumber(token) {
 				if hasWildcardNode {
 					currentNode = wildcardNode
 				} else {
-					newNode := newInternalTreeNode()
-					currentNode.internalChildren[default_wildcard_str] = newNode
+					newNode := newTokenTreeNode()
+					currentNode.tokenNodeChildren[default_wildcard_str] = newNode
 					currentNode = newNode
 				}
 			} else {
 				if hasWildcardNode {
-					if len(currentNode.internalChildren) < drain.maxChildren {
-						newNode := newInternalTreeNode()
-						currentNode.internalChildren[token] = newNode
+					if len(currentNode.tokenNodeChildren) < drain.maxChildren {
+						newNode := newTokenTreeNode()
+						currentNode.tokenNodeChildren[token] = newNode
 						currentNode = newNode
 					} else {
-						currentNode = currentNode.internalChildren[default_wildcard_str]
+						currentNode = currentNode.tokenNodeChildren[default_wildcard_str]
 					}
 				} else {
-					if len(currentNode.internalChildren)+1 < default_max_children {
-						newNode := newInternalTreeNode()
-						currentNode.internalChildren[token] = newNode
+					if len(currentNode.tokenNodeChildren)+1 < default_max_children {
+						newNode := newTokenTreeNode()
+						currentNode.tokenNodeChildren[token] = newNode
 						currentNode = newNode
-					} else if len(currentNode.internalChildren)+1 == default_max_children {
-						newNode := newInternalTreeNode()
-						currentNode.internalChildren[default_wildcard_str] = newNode
+					} else if len(currentNode.tokenNodeChildren)+1 == default_max_children {
+						newNode := newTokenTreeNode()
+						currentNode.tokenNodeChildren[default_wildcard_str] = newNode
 						currentNode = newNode
 					} else {
-						currentNode = currentNode.internalChildren[default_wildcard_str]
+						currentNode = currentNode.tokenNodeChildren[default_wildcard_str]
 					}
 				}
 			}
@@ -363,7 +363,7 @@ func (drain *drain) fastMatch(clusters []*LogCluster, tokens []string, requireSi
 
 func (drain *drain) getClustersForSeqLen(length int) []*LogCluster {
 	stack := newTreeNodes()
-	lengthNode, ok := drain.rootNode.lengthChildren[length]
+	lengthNode, ok := drain.rootNode.lengthNodeChildren[length]
 	if !ok {
 		return []*LogCluster{}
 	}
@@ -378,7 +378,7 @@ func (drain *drain) getClustersForSeqLen(length int) []*LogCluster {
 		if len(currNode.clusters) > 0 {
 			clusters = append(clusters, currNode.clusters...)
 		}
-		for _, child := range currNode.internalChildren {
+		for _, child := range currNode.tokenNodeChildren {
 			stack = stack.push(child)
 		}
 	}

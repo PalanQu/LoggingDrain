@@ -25,14 +25,10 @@ func TestAddLogMessage(t *testing.T) {
 			"Dec 10 [*] LabSZ [*] Failed password for invalid user [*] from 0.0.0.0 port [*] ssh2",
 			"Dec 10 [*] LabSZ [*] input_userauth_request: invalid user [*] [preauth]",
 		}
-		expectedClusterSize := []int{
-			1, 2, 1, 2, 3, 3,
-		}
 		drain := newDrain()
 		for i, rawLog := range rawLogs {
 			cluster, _ := drain.addLogMessage(rawLog)
 			assert.Equal(t, expected[i], cluster.getTemplate())
-			assert.Equal(t, expectedClusterSize[i], len(cluster.logs))
 		}
 	})
 	t.Run("test empty msg", func(t *testing.T) {
@@ -135,6 +131,55 @@ func TestAddLogMessage(t *testing.T) {
 			assert.Equal(t, expected[i], cluster.getTemplate())
 		}
 	})
+}
+
+func TestDepth5AddLogMessage(t *testing.T) {
+	t.Run("test add message", func(t *testing.T) {
+		rawLogs := []string{
+			"Dec 10 07:07:38 LabSZ sshd[24206]: input_userauth_request: invalid user test9 [preauth]",
+			"Dec 10 07:08:28 LabSZ sshd[24208]: input_userauth_request: invalid user webmaster [preauth]",
+			"Dec 10 09:12:32 LabSZ sshd[24490]: Failed password for invalid user ftpuser from 0.0.0.0 port 62891 ssh2",
+			"Dec 10 09:12:35 LabSZ sshd[24492]: Failed password for invalid user pi from 0.0.0.0 port 49289 ssh2",
+			"Dec 10 09:12:44 LabSZ sshd[24501]: Failed password for invalid user ftpuser from 0.0.0.0 port 60836 ssh2",
+			"Dec 10 07:28:03 LabSZ sshd[24245]: input_userauth_request: invalid user pgadmin [preauth]",
+		}
+		expected := []string{
+			"Dec 10 07:07:38 LabSZ sshd[24206]: input_userauth_request: invalid user test9 [preauth]",
+			"Dec 10 [*] LabSZ [*] input_userauth_request: invalid user [*] [preauth]",
+			"Dec 10 09:12:32 LabSZ sshd[24490]: Failed password for invalid user ftpuser from 0.0.0.0 port 62891 ssh2",
+			"Dec 10 [*] LabSZ [*] Failed password for invalid user [*] from 0.0.0.0 port [*] ssh2",
+			"Dec 10 [*] LabSZ [*] Failed password for invalid user [*] from 0.0.0.0 port [*] ssh2",
+			"Dec 10 [*] LabSZ [*] input_userauth_request: invalid user [*] [preauth]",
+		}
+		drain := newDrain(withDepth(5))
+		for i, rawLog := range rawLogs {
+			cluster, _ := drain.addLogMessage(rawLog)
+			assert.Equal(t, expected[i], cluster.getTemplate())
+		}
+	})
+	// t.Run("add log message sim75", func(t *testing.T) {
+	// 	rawLogs := []string{
+	// 		"Dec 10 07:07:38 LabSZ sshd[24206]: input_userauth_request: invalid user test9 [preauth]",
+	// 		"Dec 10 07:08:28 LabSZ sshd[24208]: input_userauth_request: invalid user webmaster [preauth]",
+	// 		"Dec 10 09:12:32 LabSZ sshd[24490]: Failed password for invalid user ftpuser from 0.0.0.0 port 62891 ssh2",
+	// 		"Dec 10 09:12:35 LabSZ sshd[24492]: Failed password for invalid user pi from 0.0.0.0 port 49289 ssh2",
+	// 		"Dec 10 09:12:44 LabSZ sshd[24501]: Failed password for invalid user ftpuser from 0.0.0.0 port 60836 ssh2",
+	// 		"Dec 10 07:28:03 LabSZ sshd[24245]: input_userauth_request: invalid user pgadmin [preauth]",
+	// 	}
+	// 	expected := []string{
+	// 		"Dec 10 07:07:38 LabSZ sshd[24206]: input_userauth_request: invalid user test9 [preauth]",
+	// 		"Dec 10 07:08:28 LabSZ sshd[24208]: input_userauth_request: invalid user webmaster [preauth]",
+	// 		"Dec 10 09:12:32 LabSZ sshd[24490]: Failed password for invalid user ftpuser from 0.0.0.0 port 62891 ssh2",
+	// 		"Dec 10 [*] LabSZ [*] Failed password for invalid user [*] from 0.0.0.0 port [*] ssh2",
+	// 		"Dec 10 [*] LabSZ [*] Failed password for invalid user [*] from 0.0.0.0 port [*] ssh2",
+	// 		"Dec 10 07:28:03 LabSZ sshd[24245]: input_userauth_request: invalid user pgadmin [preauth]",
+	// 	}
+	// 	drain := newDrain(withSim(0.75))
+	// 	for i, rawLog := range rawLogs {
+	// 		cluster, _ := drain.addLogMessage(rawLog)
+	// 		assert.Equal(t, expected[i], cluster.getTemplate())
+	// 	}
+	// })
 }
 
 func TestSeqDistance(t *testing.T) {
@@ -240,13 +285,13 @@ func TestAddSeqToPrefixTree(t *testing.T) {
 		logTemplate := []string{"abc", "aaa", "bcd", "def"}
 		logCluster := newLogCluster(1, logTemplate)
 		drain.addSeqToPrefixTree(rootNode, logCluster)
-		assert.Equal(t, 1, len(rootNode.lengthChildren))
-		assert.Equal(t, rootNode.lengthChildren[len(logTemplate)].length, len(logTemplate))
-		lengthNode := rootNode.lengthChildren[len(logTemplate)]
-		assert.NotNil(t, lengthNode.internalChildren[logTemplate[0]])
-		firstInternalLayerNode := lengthNode.internalChildren[logTemplate[0]]
-		assert.NotNil(t, firstInternalLayerNode.internalChildren[logTemplate[1]])
-		secondInternalLayerNode := firstInternalLayerNode.internalChildren[logTemplate[1]]
+		assert.Equal(t, 1, len(rootNode.lengthNodeChildren))
+		assert.Equal(t, rootNode.lengthNodeChildren[len(logTemplate)].length, len(logTemplate))
+		lengthNode := rootNode.lengthNodeChildren[len(logTemplate)]
+		assert.NotNil(t, lengthNode.tokenNodeChildren[logTemplate[0]])
+		firstInternalLayerNode := lengthNode.tokenNodeChildren[logTemplate[0]]
+		assert.NotNil(t, firstInternalLayerNode.tokenNodeChildren[logTemplate[1]])
+		secondInternalLayerNode := firstInternalLayerNode.tokenNodeChildren[logTemplate[1]]
 		assert.Equal(t, 1, len(secondInternalLayerNode.clusters))
 		assert.Equal(t, logCluster, secondInternalLayerNode.clusters[0])
 	})
@@ -267,45 +312,5 @@ func TestMatch(t *testing.T) {
 		assert.Nil(t, c)
 		c = drain.match("nothing", SEARCH_STRATEGY_NEVER)
 		assert.Nil(t, c)
-	})
-}
-
-func TestDiff(t *testing.T) {
-	t.Run("test diff", func(t *testing.T) {
-		drain1 := newDrain()
-		drain1.addLogMessage("aa bb cc")
-		drain1.addLogMessage("aa bb dd")
-		drain1.addLogMessage("aa bb ee")
-		drain1.addLogMessage("bb cc dd ff")
-		drain1.addLogMessage("bb cc dd gg")
-		drain1.addLogMessage("bb cc dd ee kk")
-
-		drain2 := newDrain()
-		drain2.addLogMessage("aa bb cc")
-		drain2.addLogMessage("aa bb dd")
-		drain2.addLogMessage("bb cc dd ff")
-		drain2.addLogMessage("bb cc dd ee")
-		drain2.addLogMessage("bb cc dd gg")
-		drain2.addLogMessage("bb cc dd ee kk")
-		drain2.addLogMessage("bb cc dd ee kk ee")
-
-		diff := drain2.diff(drain1)
-		assert.Equal(t, 4, len(diff))
-
-		assert.Equal(t, -1, diff[1].DiffNum)
-		assert.Equal(t, float32(-0.33333334), diff[1].DiffRate)
-		assert.Equal(t, log_cluster_diff_type_decrease, diff[1].DiffType)
-
-		assert.Equal(t, 1, diff[2].DiffNum)
-		assert.Equal(t, float32(0.5), diff[2].DiffRate)
-		assert.Equal(t, log_cluster_diff_type_increase, diff[2].DiffType)
-
-		assert.Equal(t, 0, diff[3].DiffNum)
-		assert.Equal(t, float32(0), diff[3].DiffRate)
-		assert.Equal(t, log_cluster_diff_type_equal, diff[3].DiffType)
-
-		assert.Equal(t, 1, diff[4].DiffNum)
-		assert.Equal(t, float32(0), diff[4].DiffRate)
-		assert.Equal(t, log_cluster_diff_type_new, diff[4].DiffType)
 	})
 }

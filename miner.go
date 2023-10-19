@@ -1,8 +1,33 @@
 package loggingdrain
 
+import "encoding/json"
+
 type TemplateMiner struct {
 	drain  *drain
 	masker *logMasker
+}
+
+type templateMinerMarshalStruct struct {
+	Drain  *drain
+	Masker *logMasker
+}
+
+func (miner *TemplateMiner) MarshalJSON() ([]byte, error) {
+	return json.Marshal(templateMinerMarshalStruct{
+		Drain:  miner.drain,
+		Masker: miner.masker,
+	})
+}
+
+func (miner *TemplateMiner) UnmarshalJSON(data []byte) error {
+	var marshalStruct templateMinerMarshalStruct
+	err := json.Unmarshal(data, &marshalStruct)
+	if err != nil {
+		return err
+	}
+	miner.drain = marshalStruct.Drain
+	miner.masker = marshalStruct.Masker
+	return nil
 }
 
 type LogMessageResponse struct {

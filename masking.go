@@ -1,6 +1,7 @@
 package loggingdrain
 
 import (
+	"encoding/json"
 	"regexp"
 )
 
@@ -19,6 +20,68 @@ type logInstruction struct {
 	pattern  string
 	maskWith string
 	re       *regexp.Regexp
+}
+
+type logMaskerMarshalStruct struct {
+	Prefix           string
+	Suffix           string
+	MaskInstructions []*logInstruction
+}
+
+type logInstructionMarshalStruct struct {
+	Pattern  string
+	MaskWith string
+}
+
+func (logInstruction *logInstruction) MarshalJSON() ([]byte, error) {
+	marshalStruct := logInstructionMarshalStruct{
+		Pattern:  logInstruction.pattern,
+		MaskWith: logInstruction.maskWith,
+	}
+	return json.Marshal(marshalStruct)
+}
+
+func (logInstruction *logInstruction) UnmarshalJSON(data []byte) error {
+	var marshalStruct logInstructionMarshalStruct
+	err := json.Unmarshal(data, &marshalStruct)
+	if err != nil {
+		return err
+	}
+	re, err := regexp.Compile(marshalStruct.Pattern)
+	if err != nil {
+		return errMaskPatternCompile(err)
+	}
+	logInstruction.pattern = marshalStruct.Pattern
+	logInstruction.maskWith = marshalStruct.MaskWith
+	logInstruction.re = re
+	return nil
+}
+
+func (logMasker *logMasker) MarshalJSON() ([]byte, error) {
+	marshalStruct := logMaskerMarshalStruct{
+		Prefix:           logMasker.prefix,
+		Suffix:           logMasker.suffix,
+		MaskInstructions: make([]*logInstruction, 0, len(logMasker.nameToInstructions)),
+	}
+	for _, v := range logMasker.nameToInstructions {
+		marshalStruct.MaskInstructions = append(marshalStruct.MaskInstructions, v)
+	}
+	return json.Marshal(marshalStruct)
+}
+
+func (logMasker *logMasker) UnmarshalJSON(data []byte) error {
+	var marshalStruct logMaskerMarshalStruct
+	err := json.Unmarshal(data, &marshalStruct)
+	if err != nil {
+		return err
+	}
+	logMasker.prefix = marshalStruct.Prefix
+	logMasker.suffix = marshalStruct.Suffix
+	logMasker.nameToInstructions = map[string]*logInstruction{}
+	for _, v := range marshalStruct.MaskInstructions {
+		logMasker.nameToInstructions[v.maskWith] = v
+	}
+	return nil
 }
 
 func newLogInstruction(maskWith, pattern string) (*logInstruction, error) {
