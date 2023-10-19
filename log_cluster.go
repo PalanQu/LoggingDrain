@@ -1,38 +1,44 @@
 package loggingdrain
 
-import "strings"
+import (
+	"encoding/json"
+	"strings"
+)
 
 type LogCluster struct {
 	id                int64
 	logTemplateTokens []string
-	logs              []string
 }
 
-type logClusterDiffType int
+type logClusterMarshalStruct struct {
+	ID                int64
+	LogTemplateTokens []string
+}
 
-const (
-	log_cluster_diff_type_new logClusterDiffType = iota
-	log_cluster_diff_type_increase
-	log_cluster_diff_type_equal
-	log_cluster_diff_type_decrease
-)
+func (cluster *LogCluster) MarshalJSON() ([]byte, error) {
+	marshalStruct := logClusterMarshalStruct{
+		ID:                cluster.id,
+		LogTemplateTokens: cluster.logTemplateTokens,
+	}
+	return json.Marshal(&marshalStruct)
+}
 
-type logClusterDiff struct {
-	DiffNum  int
-	DiffRate float32
-	DiffType logClusterDiffType
+func (cluster *LogCluster) UnmarshalJSON(data []byte) error {
+	var marshalStruct logClusterMarshalStruct
+	err := json.Unmarshal(data, &marshalStruct)
+	if err != nil {
+		return err
+	}
+	cluster.id = marshalStruct.ID
+	cluster.logTemplateTokens = marshalStruct.LogTemplateTokens
+	return nil
 }
 
 func newLogCluster(id int64, templateTokens []string) *LogCluster {
 	return &LogCluster{
 		id:                id,
 		logTemplateTokens: templateTokens,
-		logs:              make([]string, 0, 100),
 	}
-}
-
-func (cluster *LogCluster) appendLog(log string) {
-	cluster.logs = append(cluster.logs, log)
 }
 
 func (cluster *LogCluster) getTemplate() string {
@@ -44,15 +50,48 @@ type treeNodeType int
 const (
 	tree_node_type_root treeNodeType = iota
 	tree_node_type_length
-	tree_node_type_internal
+	tree_node_type_token
 )
 
 type treeNode struct {
-	nodeType         treeNodeType
-	length           int
-	internalChildren map[string]*treeNode
-	lengthChildren   map[int]*treeNode
-	clusters         []*LogCluster
+	nodeType           treeNodeType
+	length             int
+	tokenNodeChildren  map[string]*treeNode
+	lengthNodeChildren map[int]*treeNode
+	clusters           []*LogCluster
+}
+
+type treeNodeMarshalStruct struct {
+	NodeType           treeNodeType
+	Length             int
+	TokenNodeChildren  map[string]*treeNode
+	LengthNodeChildren map[int]*treeNode
+	Clusters           []*LogCluster
+}
+
+func (node *treeNode) MarshalJSON() ([]byte, error) {
+	marshalStruct := treeNodeMarshalStruct{
+		NodeType:           node.nodeType,
+		Length:             node.length,
+		TokenNodeChildren:  node.tokenNodeChildren,
+		LengthNodeChildren: node.lengthNodeChildren,
+		Clusters:           node.clusters,
+	}
+	return json.Marshal(&marshalStruct)
+}
+
+func (node *treeNode) UnmarshalJSON(data []byte) error {
+	var marshalStruct treeNodeMarshalStruct
+	err := json.Unmarshal(data, &marshalStruct)
+	if err != nil {
+		return err
+	}
+	node.clusters = marshalStruct.Clusters
+	node.length = marshalStruct.Length
+	node.lengthNodeChildren = marshalStruct.LengthNodeChildren
+	node.nodeType = marshalStruct.NodeType
+	node.tokenNodeChildren = marshalStruct.TokenNodeChildren
+	return nil
 }
 
 type treeNodes []*treeNode
@@ -72,30 +111,30 @@ func newTreeNodes() treeNodes {
 
 func newRootTreeNode() *treeNode {
 	return &treeNode{
-		nodeType:         tree_node_type_root,
-		length:           0,
-		internalChildren: make(map[string]*treeNode),
-		lengthChildren:   make(map[int]*treeNode),
-		clusters:         []*LogCluster{},
+		nodeType:           tree_node_type_root,
+		length:             0,
+		tokenNodeChildren:  make(map[string]*treeNode),
+		lengthNodeChildren: make(map[int]*treeNode),
+		clusters:           []*LogCluster{},
 	}
 }
 
 func newLengthTreeNode(length int) *treeNode {
 	return &treeNode{
-		nodeType:         tree_node_type_length,
-		length:           length,
-		internalChildren: make(map[string]*treeNode),
-		lengthChildren:   make(map[int]*treeNode),
-		clusters:         []*LogCluster{},
+		nodeType:           tree_node_type_length,
+		length:             length,
+		tokenNodeChildren:  make(map[string]*treeNode),
+		lengthNodeChildren: make(map[int]*treeNode),
+		clusters:           []*LogCluster{},
 	}
 }
 
-func newInternalTreeNode() *treeNode {
+func newTokenTreeNode() *treeNode {
 	return &treeNode{
-		nodeType:         tree_node_type_internal,
-		length:           0,
-		internalChildren: make(map[string]*treeNode),
-		lengthChildren:   make(map[int]*treeNode),
-		clusters:         []*LogCluster{},
+		nodeType:           tree_node_type_token,
+		length:             0,
+		tokenNodeChildren:  make(map[string]*treeNode),
+		lengthNodeChildren: make(map[int]*treeNode),
+		clusters:           []*LogCluster{},
 	}
 }
