@@ -25,23 +25,43 @@ func BenchmarkBuildDepth5Tree(b *testing.B) {
 	}
 }
 
-func BenchmarkMatchTree(b *testing.B) {
+func BenchmarkMatchTreeNeverStraytegy(b *testing.B) {
 	miner, _ := NewTemplateMiner()
 	for _, log := range testData {
 		miner.AddLogMessage(log)
 	}
 	for i := 0; i < b.N; i++ {
-		miner.Match(testData[i%len(testData)])
+		miner.Match(testData[i%len(testData)], SEARCH_STRATEGY_NEVER)
 	}
 }
 
-func BenchmarkMatchDepth5Tree(b *testing.B) {
+func BenchmarkMatchTreeFallbackStraytegy(b *testing.B) {
+	miner, _ := NewTemplateMiner()
+	for _, log := range testData {
+		miner.AddLogMessage(log)
+	}
+	for i := 0; i < b.N; i++ {
+		miner.Match(testData[i%len(testData)], SEARCH_STRATEGY_FALLBACK)
+	}
+}
+
+func BenchmarkMatchTreeAlwaysStraytegy(b *testing.B) {
+	miner, _ := NewTemplateMiner()
+	for _, log := range testData {
+		miner.AddLogMessage(log)
+	}
+	for i := 0; i < b.N; i++ {
+		miner.Match(testData[i%len(testData)], SEARCH_STRATEGY_ALWAYS)
+	}
+}
+
+func BenchmarkMatchDepth5TreeNeverStraytegy(b *testing.B) {
 	miner, _ := NewTemplateMiner(WithDrainDepth(5))
 	for _, log := range testData {
 		miner.AddLogMessage(log)
 	}
 	for i := 0; i < b.N; i++ {
-		miner.Match(testData[i%len(testData)])
+		miner.Match(testData[i%len(testData)], SEARCH_STRATEGY_NEVER)
 	}
 }
 

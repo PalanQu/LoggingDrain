@@ -87,9 +87,9 @@ func (miner *TemplateMiner) AddLogMessage(message string) *LogMessageResponse {
 	}
 }
 
-func (miner *TemplateMiner) Match(message string) *LogCluster {
+func (miner *TemplateMiner) Match(message string, straytege SearchStrategy) *LogCluster {
 	maskedMessage := miner.masker.mask(message)
-	return miner.drain.match(maskedMessage, SEARCH_STRATEGY_NEVER)
+	return miner.drain.match(maskedMessage, straytege)
 }
 
 func WithDrainDepth(depth int) minerOption {
