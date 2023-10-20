@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	loggingdrain3 "github.com/palanqu/loggingdrain3"
+	loggingdrain "github.com/palanqu/loggingdrain"
 )
 
 func main() {
-	miner, err := loggingdrain3.NewTemplateMiner()
+	miner, err := loggingdrain.NewTemplateMiner()
 	if err != nil {
 		panic(err)
 	}
