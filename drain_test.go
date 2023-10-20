@@ -157,29 +157,29 @@ func TestDepth5AddLogMessage(t *testing.T) {
 			assert.Equal(t, expected[i], cluster.getTemplate())
 		}
 	})
-	// t.Run("add log message sim75", func(t *testing.T) {
-	// 	rawLogs := []string{
-	// 		"Dec 10 07:07:38 LabSZ sshd[24206]: input_userauth_request: invalid user test9 [preauth]",
-	// 		"Dec 10 07:08:28 LabSZ sshd[24208]: input_userauth_request: invalid user webmaster [preauth]",
-	// 		"Dec 10 09:12:32 LabSZ sshd[24490]: Failed password for invalid user ftpuser from 0.0.0.0 port 62891 ssh2",
-	// 		"Dec 10 09:12:35 LabSZ sshd[24492]: Failed password for invalid user pi from 0.0.0.0 port 49289 ssh2",
-	// 		"Dec 10 09:12:44 LabSZ sshd[24501]: Failed password for invalid user ftpuser from 0.0.0.0 port 60836 ssh2",
-	// 		"Dec 10 07:28:03 LabSZ sshd[24245]: input_userauth_request: invalid user pgadmin [preauth]",
-	// 	}
-	// 	expected := []string{
-	// 		"Dec 10 07:07:38 LabSZ sshd[24206]: input_userauth_request: invalid user test9 [preauth]",
-	// 		"Dec 10 07:08:28 LabSZ sshd[24208]: input_userauth_request: invalid user webmaster [preauth]",
-	// 		"Dec 10 09:12:32 LabSZ sshd[24490]: Failed password for invalid user ftpuser from 0.0.0.0 port 62891 ssh2",
-	// 		"Dec 10 [*] LabSZ [*] Failed password for invalid user [*] from 0.0.0.0 port [*] ssh2",
-	// 		"Dec 10 [*] LabSZ [*] Failed password for invalid user [*] from 0.0.0.0 port [*] ssh2",
-	// 		"Dec 10 07:28:03 LabSZ sshd[24245]: input_userauth_request: invalid user pgadmin [preauth]",
-	// 	}
-	// 	drain := newDrain(withSim(0.75))
-	// 	for i, rawLog := range rawLogs {
-	// 		cluster, _ := drain.addLogMessage(rawLog)
-	// 		assert.Equal(t, expected[i], cluster.getTemplate())
-	// 	}
-	// })
+	t.Run("add log message sim75", func(t *testing.T) {
+		rawLogs := []string{
+			"Dec 10 07:07:38 LabSZ sshd[24206]: input_userauth_request: invalid user test9 [preauth]",
+			"Dec 10 07:08:28 LabSZ sshd[24208]: input_userauth_request: invalid user webmaster [preauth]",
+			"Dec 10 09:12:32 LabSZ sshd[24490]: Failed password for invalid user ftpuser from 0.0.0.0 port 62891 ssh2",
+			"Dec 10 09:12:35 LabSZ sshd[24492]: Failed password for invalid user pi from 0.0.0.0 port 49289 ssh2",
+			"Dec 10 09:12:44 LabSZ sshd[24501]: Failed password for invalid user ftpuser from 0.0.0.0 port 60836 ssh2",
+			"Dec 10 07:28:03 LabSZ sshd[24245]: input_userauth_request: invalid user pgadmin [preauth]",
+		}
+		expected := []string{
+			"Dec 10 07:07:38 LabSZ sshd[24206]: input_userauth_request: invalid user test9 [preauth]",
+			"Dec 10 07:08:28 LabSZ sshd[24208]: input_userauth_request: invalid user webmaster [preauth]",
+			"Dec 10 09:12:32 LabSZ sshd[24490]: Failed password for invalid user ftpuser from 0.0.0.0 port 62891 ssh2",
+			"Dec 10 [*] LabSZ [*] Failed password for invalid user [*] from 0.0.0.0 port [*] ssh2",
+			"Dec 10 [*] LabSZ [*] Failed password for invalid user [*] from 0.0.0.0 port [*] ssh2",
+			"Dec 10 07:28:03 LabSZ sshd[24245]: input_userauth_request: invalid user pgadmin [preauth]",
+		}
+		drain := newDrain(withSim(0.75))
+		for i, rawLog := range rawLogs {
+			cluster, _ := drain.addLogMessage(rawLog)
+			assert.Equal(t, expected[i], cluster.getTemplate())
+		}
+	})
 }
 
 func TestSeqDistance(t *testing.T) {

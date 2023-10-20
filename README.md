@@ -1,8 +1,8 @@
-# LoggingDrain3
+# LoggingDrain
 
 ## Introduce
 
-LoggingDrain3 is go implemented for [drain3](http://jiemingzhu.github.io/pub/pjhe_icws2017.pdf)
+LoggingDrain is go implemented for [drain3](http://jiemingzhu.github.io/pub/pjhe_icws2017.pdf)
 
 
 ## Example
@@ -28,10 +28,10 @@ go test -bench=.
 ```
 goos: darwin
 goarch: arm64
-pkg: github.com/palanqu/loggingdrain3
+pkg: github.com/palanqu/loggingdrain
 BenchmarkBuildTree-8       	 1632832	       699.0 ns/op
 BenchmarkMatchTree-8       	 3431210	       349.4 ns/op
 BenchmarkUnmarshalJson-8   	  378432	      3172 ns/op
 PASS
-ok  	github.com/palanqu/loggingdrain3	4.840s
+ok  	github.com/palanqu/loggingdrain	4.840s
 ```

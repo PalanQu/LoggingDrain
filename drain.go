@@ -51,20 +51,22 @@ type drainMarshalStruct struct {
 	MaxChildren int
 	MaxClusters int
 
-	Clusters []*LogCluster
-	RootNode *treeNode
+	ClusterCounter int64
+	Clusters       []*LogCluster
+	RootNode       *treeNode
 }
 
 func (drain *drain) MarshalJSON() ([]byte, error) {
 	clusters := []*LogCluster{}
 	clusters = append(clusters, drain.idToCluster.Values()...)
 	marshalStruct := drainMarshalStruct{
-		MaxDepth:    drain.maxDepth,
-		Sim:         drain.sim,
-		MaxChildren: drain.maxChildren,
-		MaxClusters: drain.maxClusters,
-		Clusters:    clusters,
-		RootNode:    drain.rootNode,
+		MaxDepth:       drain.maxDepth,
+		Sim:            drain.sim,
+		MaxChildren:    drain.maxChildren,
+		MaxClusters:    drain.maxClusters,
+		Clusters:       clusters,
+		RootNode:       drain.rootNode,
+		ClusterCounter: drain.clusterCounter,
 	}
 	return json.Marshal(&marshalStruct)
 }
@@ -80,7 +82,7 @@ func (drain *drain) UnmarshalJSON(data []byte) error {
 		l.Add(cluster.id, cluster)
 	}
 
-	drain.clusterCounter = int64(len(marshalStruct.Clusters))
+	drain.clusterCounter = marshalStruct.ClusterCounter
 	drain.idToCluster = l
 	drain.maxChildren = marshalStruct.MaxChildren
 	drain.maxClusters = marshalStruct.MaxClusters
